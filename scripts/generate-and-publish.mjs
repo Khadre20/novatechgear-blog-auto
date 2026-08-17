@@ -6,8 +6,30 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const SHOPIFY_STORE = process.env.SHOPIFY_STORE_DOMAIN; // ex: novatechgear-2.myshopify.com
-const SHOPIFY_TOKEN = process.env.SHOPIFY_ACCESS_TOKEN;
+const SHOPIFY_CLIENT_ID = process.env.SHOPIFY_CLIENT_ID;
+const SHOPIFY_CLIENT_SECRET = process.env.SHOPIFY_CLIENT_SECRET;
 const BLOG_GID = process.env.SHOPIFY_BLOG_GID || 'gid://shopify/Blog/104173011174';
+
+// Récupère un jeton d'accès temporaire (valable 24h) via le flux client_credentials,
+// le système d'authentification standard pour les apps Dev Dashboard depuis 2026.
+async function getShopifyAccessToken() {
+  const res = await fetch(`https://${SHOPIFY_STORE}/admin/oauth/access_token`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'client_credentials',
+      client_id: SHOPIFY_CLIENT_ID,
+      client_secret: SHOPIFY_CLIENT_SECRET,
+    }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Erreur d'authentification Shopify: ${res.status} ${await res.text()}`);
+  }
+
+  const data = await res.json();
+  return data.access_token;
+}
 
 const HISTORY_PATH = path.join(__dirname, '..', 'content', 'history.json');
 
@@ -84,7 +106,7 @@ Réponds UNIQUEMENT avec un objet JSON valide (aucun texte avant/après, pas de 
   return JSON.parse(jsonText);
 }
 
-async function publishToShopify(article) {
+async function publishToShopify(article, accessToken) {
   const mutation = `
     mutation articleCreate($article: ArticleCreateInput!) {
       articleCreate(article: $article) {
@@ -123,7 +145,7 @@ async function publishToShopify(article) {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      'X-Shopify-Access-Token': SHOPIFY_TOKEN,
+      'X-Shopify-Access-Token': accessToken,
     },
     body: JSON.stringify({ query: mutation, variables }),
   });
@@ -143,9 +165,9 @@ async function publishToShopify(article) {
 }
 
 async function main() {
-  if (!ANTHROPIC_API_KEY || !SHOPIFY_STORE || !SHOPIFY_TOKEN) {
+  if (!ANTHROPIC_API_KEY || !SHOPIFY_STORE || !SHOPIFY_CLIENT_ID || !SHOPIFY_CLIENT_SECRET) {
     throw new Error(
-      "Variables d'environnement manquantes: ANTHROPIC_API_KEY, SHOPIFY_STORE_DOMAIN, SHOPIFY_ACCESS_TOKEN"
+      "Variables d'environnement manquantes: ANTHROPIC_API_KEY, SHOPIFY_STORE_DOMAIN, SHOPIFY_CLIENT_ID, SHOPIFY_CLIENT_SECRET"
     );
   }
 
@@ -154,8 +176,11 @@ async function main() {
   console.log("Génération de l'article...");
   const article = await generateArticle(history);
 
+  console.log("Authentification Shopify...");
+  const accessToken = await getShopifyAccessToken();
+
   console.log(`Publication de "${article.title}" sur Shopify...`);
-  const published = await publishToShopify(article);
+  const published = await publishToShopify(article, accessToken);
 
   history.push({
     date: new Date().toISOString(),
