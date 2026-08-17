@@ -2,8 +2,8 @@ name: Article de blog quotidien
 
 on:
   schedule:
-    - cron: '0 7 * * *' # 7h00 UTC = 9h Paris (été) / 8h Paris (hiver)
-  workflow_dispatch: {} # permet de lancer manuellement depuis l'onglet Actions
+    - cron: '0 7 * * *'
+  workflow_dispatch: {}
 
 permissions:
   contents: write
@@ -22,7 +22,8 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           SHOPIFY_STORE_DOMAIN: ${{ secrets.SHOPIFY_STORE_DOMAIN }}
-          SHOPIFY_ACCESS_TOKEN: ${{ secrets.SHOPIFY_ACCESS_TOKEN }}
+          SHOPIFY_CLIENT_ID: ${{ secrets.SHOPIFY_CLIENT_ID }}
+          SHOPIFY_CLIENT_SECRET: ${{ secrets.SHOPIFY_CLIENT_SECRET }}
         run: node scripts/generate-and-publish.mjs
 
       - name: Sauvegarder l'historique des sujets déjà traités
