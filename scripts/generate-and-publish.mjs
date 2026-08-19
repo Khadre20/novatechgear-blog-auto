@@ -124,6 +124,7 @@ async function publishToShopify(article, accessToken) {
       body: article.body_html,
       tags: article.tags,
       isPublished: true,
+      author: { name: 'NovaTech Gear' },
       metafields: [
         {
           namespace: 'global',
